@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+    <html lang="fr">
+        <head>
+            <title>ThreeJS - Proto Final</title>
+            <link rel="stylesheet" href="css/style.css"/>
+        </head>
+        <body>
+            <audio id="son" src="Asteroid.mp3"></audio>
+            <script src="js/three.min.js"></script>
+            <script src="js/FlyControls.js"></script>
+            <script>
+                var ball, lightMesh, geometry;
+                var boules = [];
+                var ballDirX = [],
+                    ballDirY = [],
+                    ballDirZ = [],
+                    ballSpeed = 6;
+
+                //var radius = Math.random() * 50;
+
+                //var mouseX = 0, mouseY = 0;
+
+                var fieldX = 10000,
+                    fieldY = 10000,
+                    fieldZ = 10000;
+
+                var windowHalfX = window.innerWidth / 2;
+                var windowHalfY = window.innerHeight / 2;
+
+                var clock = new THREE.Clock();
+
+                init();
+                animate();
+
+                function init() {
+
+                    container = document.createElement('div');
+                    document.body.appendChild(container);
+
+                    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+                    camera.position.x = 1500;
+                    camera.position.y = 1500;
+                    camera.position.z = 1500;
+
+                    controls = new THREE.FlyControls(camera);
+
+                    controls.movementSpeed = 1000;
+                    controls.domElement = container;
+                    controls.rollSpeed = Math.PI / 6;
+                    controls.autoForward = false;
+                    controls.dragToLook = false;
+
+                    cameraCube = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 100000);
+
+                    scene = new THREE.Scene();
+                    sceneCube = new THREE.Scene();
+
+                    // lights
+                    var dirLight = new THREE.DirectionalLight(0xffffff, 0.05);
+                    dirLight.position.set(0, -1, 0).normalize();
+                    scene.add(dirLight);
+                    dirLight.color.setHSL(0.1, 0.7, 0.5);
+                    // lens flares
+                    var textureFlare0 = THREE.ImageUtils.loadTexture("light/lensflare0.png");
+                    var textureFlare2 = THREE.ImageUtils.loadTexture("light/lensflare2.png");
+                    var textureFlare3 = THREE.ImageUtils.loadTexture("light/lensflare3.png");
+                    addLight(0.55, 0.9, 0.5, 10000, 10000, 50000);
+                    //addLight( 0.08, 0.8, 0.5,    0, 0, -1000 );
+                    //addLight( 0.995, 0.5, 0.9, 5000, 5000, -1000 );
+
+                    function addLight(h, s, l, x, y, z) {
+                        var light = new THREE.PointLight(0xffffff, 1.5, 2000);
+                        light.color.setHSL(h, s, l);
+                        light.position.set(x, y, z);
+                        scene.add(light);
+                        var flareColor = new THREE.Color(0xffffff);
+                        flareColor.setHSL(h, s, l + 0.5);
+                        var lensFlare = new THREE.LensFlare(textureFlare0, 700, 0.0, THREE.AdditiveBlending, flareColor);
+                        lensFlare.add(textureFlare2, 512, 0.0, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare2, 512, 0.0, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare2, 512, 0.0, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare3, 60, 0.6, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare3, 70, 0.7, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare3, 120, 0.9, THREE.AdditiveBlending);
+                        lensFlare.add(textureFlare3, 70, 1.0, THREE.AdditiveBlending);
+                        lensFlare.customUpdateCallback = lensFlareUpdateCallback;
+                        lensFlare.position.copy(light.position);
+                        scene.add(lensFlare);
+                    }
+
+                    function lensFlareUpdateCallback(object) {
+
+                        var f, fl = object.lensFlares.length;
+                        var flare;
+                        var vecX = -object.positionScreen.x * 2;
+                        var vecY = -object.positionScreen.y * 2;
+
+                        for (f = 0; f < fl; f++) {
+
+                            flare = object.lensFlares[f];
+
+                            flare.x = object.positionScreen.x + vecX * flare.distance;
+                            flare.y = object.positionScreen.y + vecY * flare.distance;
+
+                            flare.rotation = 0;
+
+                        }
+
+                        object.lensFlares[2].y += 0.025;
+                        object.lensFlares[3].rotation = object.positionScreen.x * 0.5 + THREE.Math.degToRad(45);
+
+                    }
+                    //--------------------------------FORME DES BOULES------------------
+                    //REPERTOIRE ROOT IMAGES
+                    var path = "";
+                    var format = '.jpg';
+                    var urls = [
+                            path + 'px' + format, path + 'nx' + format,
+                            path + 'py' + format, path + 'ny' + format,
+                            path + 'pz' + format, path + 'nz' + format
+                        ];
+
+                    //var textureCube = THREE.ImageUtils.loadTextureCube( urls, THREE.CubeRefractionMapping );
+                    //var material = new THREE.MeshBasicMaterial( { color: 0xffffff, envMap: textureCube, refractionRatio: 0.5 } );
+                    var material = new THREE.MeshBasicMaterial({
+                        map: THREE.ImageUtils.loadTexture('asteroide.jpg')
+                    });
+
+
+                    var distance = 10000;
+
+                    for (var i = 0; i <= 800; i++) {
+
+                        ball = new THREE.Mesh(new THREE.SphereGeometry((Math.random() * 30), 32, 32), material);
+                        ball.position.x = Math.random() * distance * 2 - distance; //Math.random() * 3000  - 1000;
+                        ball.position.y = Math.random() * distance * 2 - distance; //Math.random() * 3000  - 1000;
+                        ball.position.z = Math.random() * distance * 2 - distance; //Math.random() * 3000  - 1000;
+
+                        scene.add(ball);
+
+                        ballDirX[i] = boolean();
+                        ballDirY[i] = boolean();
+                        ballDirZ[i] = boolean();
+
+                        boules.push(ball);
+                    }
+
+                    var textureCube = THREE.ImageUtils.loadTextureCube(urls, THREE.CubeRefractionMapping);
+                    var material = new THREE.MeshBasicMaterial({
+                        color: 0xffffff,
+                        envMap: textureCube,
+                        refractionRatio: 0.95
+                    });
+
+
+                    var shader = THREE.ShaderLib["cube"];
+                    shader.uniforms["tCube"].value = textureCube;
+
+                    var material = new THREE.ShaderMaterial({
+
+                            fragmentShader: shader.fragmentShader,
+                            vertexShader: shader.vertexShader,
+                            uniforms: shader.uniforms,
+                            depthWrite: false,
+                            side: THREE.BackSide
+
+                        }),
+
+                        cube = new THREE.Mesh(new THREE.BoxGeometry(100, 100, 100), material);
+                        sceneCube.add(cube);
+
+                    //
+
+                    renderer = new THREE.WebGLRenderer({
+                        antialias: true,
+                        alpha: true
+                    });
+                    renderer.setPixelRatio(window.devicePixelRatio);
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                    renderer.autoClear = false;
+                    container.appendChild(renderer.domElement);
+
+                    window.addEventListener('resize', onWindowResize, false);
+
+                }
+
+                function onWindowResize() {
+
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    camera.updateProjectionMatrix();
+
+                }
+
+                function animate() {
+                    requestAnimationFrame(animate);
+
+                    var delta = clock.getDelta();
+                    controls.update(delta);
+
+                    render();
+                }
+
+                function render() {
+
+                    for (var i = 0, all = boules.length; i < all; i++) {
+                        var ball = boules[i];
+
+                        // left side
+                        if ((ball.position.x /*- radius*/ ) <= -fieldX) {
+                            ballDirX[i] = -ballDirX[i];
+                        }
+
+                        // right side
+                        if ((ball.position.x /*+ radius*/ ) >= fieldX) {
+                            ballDirX[i] = -ballDirX[i];
+                        }
+
+                        // top side
+                        if ((ball.position.y /*- radius*/ ) <= -fieldY) {
+                            ballDirY[i] = -ballDirY[i];
+                        }
+                        // bottom side
+                        if ((ball.position.y /*+ radius*/ ) >= fieldY) {
+                            ballDirY[i] = -ballDirY[i];
+                        }
+
+                        // top side
+                        if ((ball.position.z /*- radius*/ ) <= -fieldZ) {
+                            ballDirZ[i] = -ballDirZ[i];
+                        }
+                        // bottom side
+                        if ((ball.position.z /*+ radius*/ ) >= fieldZ) {
+                            ballDirZ[i] = -ballDirZ[i];
+                        }
+
+                        // update ball position over time
+                        ball.position.x += ballDirX[i] * ballSpeed;
+                        ball.position.y += ballDirY[i] * ballSpeed;
+                        ball.position.z += ballDirZ[i] * ballSpeed;
+
+                        // limit ball's y-speed to 2x the x-speed
+                        // this is so the ball doesn't speed from left to right super fast
+                        // keeps game playable for humans
+                        if (ballDirY[i] > ballSpeed * 2) {
+                            ballDirY[i] = ballSpeed * 2;
+                        } else if (ballDirY[i] < -ballSpeed * 2) {
+                            ballDirY[i] = -ballSpeed * 2;
+                        }
+                    }
+
+                    //camera.position.x += ( mouseX - camera.position.x ) * .05;
+                    //camera.position.y += ( - mouseY - camera.position.y ) * .05;
+
+                    camera.lookAt(scene.position);
+                    cameraCube.rotation.copy(camera.rotation);
+
+                    renderer.render(sceneCube, cameraCube);
+                    renderer.render(scene, camera);
+                }
+
+                function boolean() {
+                    var bool = Math.round(Math.random());
+                    if (bool == 1) {
+                        return -1
+                    } else {
+                        return 1
+                    }
+                }
+                var myAudio = document.getElementById("son");
+
+                function testsound() {
+                    var time = (Math.random() * 10) * 1500;
+                    var timer = setTimeout(function () {
+                        myAudio.play();
+                        testsound();
+                    }, time)
+                }
+                testsound();
+            </script>
+        </body>
+</html>
